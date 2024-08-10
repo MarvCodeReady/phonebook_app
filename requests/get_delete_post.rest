@@ -1,0 +1,11 @@
+GET http://localhost:3001/api/persons
+###
+DELETE http://localhost:3001/api/persons/557
+###
+POST http://localhost:3001/api/persons
+Content-Type: application/json
+
+{
+    "name" : "Beth White",
+    "number" : "690-389-2763"
+}
