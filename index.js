@@ -2,6 +2,9 @@ const express = require('express')
 const app = express()
 const morgan = require('morgan')
 const cors = require('cors')
+require('dotenv').config()
+const Person = require('./models/person')
+
 
 app.use(express.json())
 app.use(express.static("dist"))
@@ -67,25 +70,31 @@ let persons =  [
 
 
   app.get('/api/persons', (request, response) => {
-    response.json(persons)
+    Person.find({}).then(persons => {
+        response.json(persons)
+    })
+    
   })
 
   app.get('/api/persons/:id', (request, response) => {
-    const id = request.params.id
-    const person = persons.find(person => person.id === id)
-
-    if(person){
+    Person.findById(request.params.id).then(person => {
         response.json(person)
-    } else {
-        response.status(404).end
-    }
+    })
 
   })
 
   app.get('/info', (request, response) => {
-    response.send(`<h1>Phonebook has info for ${persons.length} people</h1> 
+    Person.countDocuments({})
+        .then(count => {
+            response.send(`<h1>Phonebook has info for ${count} people</h1> 
                     <br/>
-                    <h1>${Date()}</h1>`  )
+                    <h1>${Date()}</h1>`)
+        })
+        .catch(error => {
+            console.error('Error counting the number of people', error)
+            response.status(500).send('An error has occurred while retrieving the information')
+        })
+    
     console.log(persons.length)
   })
 
@@ -112,6 +121,16 @@ let persons =  [
         })
     }
 
+    const person = new Person({
+        name: body.name,
+        number: body.number,
+    })
+
+    person.save().then(savedPerson => {
+        response.json(savedPerson)
+    })
+
+/* for development purposes
     const nameExists = persons.some((person) => 
                     person.name.toLowerCase() === body.name.toLowerCase())
 
@@ -122,6 +141,7 @@ let persons =  [
     }
 
 
+
     const person = {
         name: body.name,
         number: body.number,
@@ -130,8 +150,9 @@ let persons =  [
 
     persons = persons.concat(person)
     response.json(person)
+*/
 
   })
 
-  const PORT = process.env.PORT || 3001
+  const PORT = process.env.PORT
   app.listen(PORT, () => {console.log(`Server running on port ${PORT}`)})
