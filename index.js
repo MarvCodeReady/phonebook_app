@@ -20,6 +20,15 @@ morgan.token('req-body', (request) => {
 
 app.use(morgan(":method :url :status :res[content-length] - :response-time ms :req-body"))
 
+const errorHandler = (error, request, response, next) => {
+    console.error(error.messsage)
+
+    if(error.name === 'CastError'){
+        return response.status(400).send({error : 'malformated id'})
+    }
+    next(error)
+}
+
 let persons =  [
       {
         "name": "Arto Hellas",
@@ -76,11 +85,16 @@ let persons =  [
     
   })
 
-  app.get('/api/persons/:id', (request, response) => {
-    Person.findById(request.params.id).then(person => {
-        response.json(person)
-    })
-
+  app.get('/api/persons/:id', (request, response, next) => {
+    Person.findById(request.params.id)
+        .then(person => {
+            if(person){
+                response.json(person)
+            } else {
+                response.status(404).end()
+            }
+        })
+        .catch(error => next(error))
   })
 
   app.get('/info', (request, response) => {
@@ -98,19 +112,31 @@ let persons =  [
     console.log(persons.length)
   })
 
-  app.delete('/api/persons/:id', (request, response) => {
-    const id = request.params.id
-    persons = persons.filter(person => person.id !== id)
+  app.delete('/api/persons/:id', (request, response, next) => {
+    Person.findByIdAndDelete(request.params.id)
+        .then(result => {
+            response.status(204).end()
+        })
+        .catch(error => next(error))
 
     response.status(204).end()
   })
 
-  const generateID = () => {
-    const maxId = persons.length > 0 ?
-        Math.floor(Math.random() * 1000)
-        : 0
-        return String(maxId + 1)
-  }
+  app.put('/api/persons/:id', (request, response, next) => {
+    const body = request.body
+
+    const person = {
+        name: body.name,
+        number: body.number,
+    }
+
+    response .status(204).end()
+    Person.findByIdAndUpdate(request.params.id, person, {new: true})
+        .then(updatedPerson => {
+            response.json(updatedPerson)
+        })
+        .catch(error => next(error))
+  })
 
   app.post('/api/persons', (request, response) => {
     const body = request.body
@@ -130,29 +156,9 @@ let persons =  [
         response.json(savedPerson)
     })
 
-/* for development purposes
-    const nameExists = persons.some((person) => 
-                    person.name.toLowerCase() === body.name.toLowerCase())
-
-    if(nameExists){
-        return response.status(400).json({
-            error : 'name must be unique'
-        })
-    }
-
-
-
-    const person = {
-        name: body.name,
-        number: body.number,
-        id : generateID(),
-    }
-
-    persons = persons.concat(person)
-    response.json(person)
-*/
-
   })
+
+  app.use(errorHandler)
 
   const PORT = process.env.PORT
   app.listen(PORT, () => {console.log(`Server running on port ${PORT}`)})
