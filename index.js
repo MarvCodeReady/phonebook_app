@@ -12,7 +12,7 @@ app.use(morgan('tiny'))
 app.use(cors())
 
 morgan.token('req-body', (request) => {
-    if(request.method === "POST"){
+    if(request.method === "POST" || "PUT"){
         return JSON.stringify(request.body);
     }
     return "";
@@ -25,57 +25,14 @@ const errorHandler = (error, request, response, next) => {
 
     if(error.name === 'CastError'){
         return response.status(400).send({error : 'malformated id'})
+    } else if (error.name === 'ValidationError'){
+        return response.status(400).json({error: error.message})
     }
+
     next(error)
 }
 
-let persons =  [
-      {
-        "name": "Arto Hellas",
-        "number": "040-123456",
-        "id": "1"
-      },
-      {
-        "name": "Ada Lovelace",
-        "number": "39-44-5323523",
-        "id": "2"
-      },
-      {
-        "name": "Dan Abramov",
-        "number": "12-43-234345",
-        "id": "3"
-      },
-      {
-        "name": "Mary Poppendieck",
-        "number": "39-23-6423122",
-        "id": "4"
-      },
-      {
-        "name": "Marcus Arelius",
-        "number": "555-444-8888",
-        "id": "5"
-      },
-      {
-        "name": "Bob Green",
-        "number": "329-496-7721",
-        "id": "6"
-      },
-      {
-        "name": "Greg Freeman",
-        "number": "237-584-1789",
-        "id": "7"
-      },
-      {
-        "name": "Sally Mendes",
-        "number": "390-719-8932",
-        "id": "8"
-      },
-      {
-        "name": "Pami Wonder",
-        "number": "230-324-1275",
-        "id": "9"
-      }
-    ]
+
 
 
   app.get('/api/persons', (request, response) => {
@@ -109,7 +66,7 @@ let persons =  [
             response.status(500).send('An error has occurred while retrieving the information')
         })
     
-    console.log(persons.length)
+    
   })
 
   app.delete('/api/persons/:id', (request, response, next) => {
@@ -119,33 +76,22 @@ let persons =  [
         })
         .catch(error => next(error))
 
-    response.status(204).end()
   })
 
   app.put('/api/persons/:id', (request, response, next) => {
-    const body = request.body
+    const {name, number} = request.body
 
-    const person = {
-        name: body.name,
-        number: body.number,
-    }
-
-    response .status(204).end()
-    Person.findByIdAndUpdate(request.params.id, person, {new: true})
+    Person.findByIdAndUpdate(request.params.id,
+        { name, number},
+        {new: true, runValidators: true, context: 'query' })
         .then(updatedPerson => {
             response.json(updatedPerson)
         })
         .catch(error => next(error))
   })
 
-  app.post('/api/persons', (request, response) => {
+  app.post('/api/persons', (request, response, next) => {
     const body = request.body
-
-    if(!body.name || !body.number) {
-        return response.status(400).json({
-            error : 'name and or number is missing'
-        })
-    }
 
     const person = new Person({
         name: body.name,
@@ -155,7 +101,7 @@ let persons =  [
     person.save().then(savedPerson => {
         response.json(savedPerson)
     })
-
+    .catch(error => next(error))
   })
 
   app.use(errorHandler)
